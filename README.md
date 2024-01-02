@@ -94,10 +94,6 @@ to communicate. If no port or ip is specified, it will search for a free port on
 localhost on its own and stores the server credentials in the experiment 
 directory (unique for each daemon).
 
-After creating a server, ``monitor_server.py`` starts always a background task 
-to monitor the servers current state. If the server is in idle for too long. 
-The server will be shut down. 
-
 However, epm is mainly developed to be used with the 
 [aclib](https://bitbucket.org/mlindauer/aclib2/src/master/)
 
