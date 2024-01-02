@@ -78,7 +78,7 @@ def one_hot_encode(config, cs):
               for hp in cs.get_hyperparameters()]
 
     transformer = [OneHotEncoder(categories='auto').fit(v.reshape((-1, 1)))
-                   if len(v) is not 0 else None
+                   if len(v) != 0 else None
                    for v in values]
 
     # Create array with one hot encoded values
@@ -220,7 +220,12 @@ def get_imputed_config_as_dict_from_dict(config, cs, impute_with='def'):
             {name:
              config_dict.get(name, cs.get_hyperparameter(name).default_value)
              for name in cs.get_hyperparameter_names()}
-    if type(impute_with) in [int, float, np.float, np.int]:
+    if (
+        isinstance(impute_with, int)
+        or isinstance(impute_with, float)
+        or isinstance(impute_with, np.floating)
+        or isinstance(impute_with, np.integer)
+    ):
         config_dict = \
             {name:
              config_dict.get(name, impute_with)

@@ -4,6 +4,7 @@ import pathlib
 import pickle
 import numpy as np
 import logging
+import os.path
 
 from epm.experiment_utils.config_space_utils import \
     encode_config_as_array_with_true_values, one_hot_encode,\
@@ -245,9 +246,14 @@ def store_credentials(host, port, pid, working_dir):
     working_dir = pathlib.Path(working_dir)
     with open(str(working_dir / 'nameserver_creds.pkl'), 'wb') as f:
         pickle.dump((host, port, pid), f)
-    logger.debug('Stored server credentials in directory {}'
-                 .format(str(working_dir / 'nameserver_creds.pkl')))
-
+    pathlib.Path(os.path.join(working_dir, 'nameserver_creds')).mkdir(exist_ok=True)
+    with open(os.path.join(working_dir, 'nameserver_creds/host.txt'), 'w', encoding='utf-8') as f:
+        f.write(str(host))
+    with open(os.path.join(working_dir, 'nameserver_creds/port.txt'), 'w', encoding='utf-8') as f:
+        f.write(str(port))
+    with open(os.path.join(working_dir, 'nameserver_creds/pid.txt'), 'w', encoding='utf-8') as f:
+        f.write(str(pid))
+    logger.debug('Stored server credentials in file %s and directory %s', working_dir / "nameserver_creds.pkl", os.path.join(working_dir, 'nameserver_creds/pid.txt'))
 
 def parse_args(args):
     """
@@ -288,15 +294,15 @@ def parse_args(args):
                         action='store_true', help='Show some more output')
 
     subparser = parser.add_subparsers(dest='action')
-    start = subparser.add_parser('start')
-    start.add_argument('-n', '--nic_name', default=None, type=str,
+    parser.add_argument('-n', '--nic_name', default=None, type=str,
                        dest='nic_name',
                        help='Nic name of the server. E.g. localhost')
-    start.add_argument('--ip', default=None, type=str, dest='ip',
+    parser.add_argument('--ip', default=None, type=str, dest='ip',
                        help='Ip address for daemon')
-    start.add_argument('-p', '--port', default=0, type=int, dest='port',
+    parser.add_argument('-p', '--port', default=0, type=int, dest='port',
                        help='Port of the daemon to use')
 
+    subparser.add_parser('start')
     subparser.add_parser('stop')
     subparser.add_parser('status')
 

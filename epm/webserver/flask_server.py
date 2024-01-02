@@ -34,13 +34,7 @@ def create_app(**kwargs):
                      ' This is only activated to speed up testing.')
 
     app.LAST_REQUEST = time()
-    app.IDLE_TIME = kwargs.get('idle_time', 600)
     app.kwargs = kwargs
-
-    cmd = 'python -m epm.webserver.monitor_server --dir {} --idle_time {}'\
-        .format(kwargs.get('dir'), app.IDLE_TIME)
-    logger.info('Start process for server monitor with cmd: {}'.format(cmd))
-    app.watcher_proc = Popen(cmd.split())
 
     @app.route("/predict", methods=['POST'])
     def predict():
@@ -107,6 +101,61 @@ def create_app(**kwargs):
             message = 'Only POST request is implemented.'
             return jsonify(message)
 
+    @app.route("/predict-simple", methods=['POST'])
+    def predict_simple():
+        #TODO: DRY extract common logic with predict
+        """
+        """
+        app.LAST_REQUEST = time()
+
+        if request.method == 'POST':
+            # TODO: catch receive errors. catch jsonify errors.
+            try:
+                json_data = request.get_json()
+
+                # Sometime json data is not a dict but a string.
+                # If it is a string, cast it to a dictionary
+                if json_data is str:
+                    json_data = json.loads(json_data)
+
+            except Exception as e:
+                logger.error(e)
+                raise e
+
+            # This is a direct call to make a prediction
+            # (without instance feature dict, etc.)
+            if 'x' in json_data:
+                x = np.array(json_data['x'], dtype=app.surrogate_model.dtype)
+                result, additional = \
+                    app.surrogate_model.predict(x, app.surrogate_model.quality)
+
+            # The parameters are a list of arguments. Convert them to
+            # a vector representation and pass them to the surrogate model.
+            else:
+                if 'params' not in json_data:
+                    raise KeyError('No command line parameters are given')
+                result, additional = \
+                    handle_request(json_data, app.surrogate_model)
+
+            # Return a response in json format
+            response = {'result': result.tolist(),
+                        'additional': additional.tolist()}
+            with open('debugging-server.txt', 'w', encoding='utf-8') as f:
+                print(json_data, file=f)
+            res = result[0]
+            res = min(float(json_data['bound']) + 1, result[0])
+            return Response(response=str(res) + '\n' + str(res),
+                            status=200,
+                            mimetype='application/json')
+
+            # except KeyError:
+            #     return jsonify('KeyError: Wrong input')
+            # except ValueError:
+            #     return jsonify('ValueError: Wrong input')
+        else:
+            message = 'Only POST request is implemented.'
+            return jsonify(message)
+
     @app.route('/status', methods=['GET'])
     def get_status():
         """
@@ -148,10 +197,6 @@ def create_app(**kwargs):
         """
 
         logger.debug('Start Shutdown procedure')
-
-        # kill watcher process
-        logger.info('Kill Server Monitor')
-        app.watcher_proc.terminate()
 
         # clean up server files and release lock
         cwd = pathlib.Path(app.kwargs.get('dir', '.'))
