@@ -140,8 +140,6 @@ def create_app(**kwargs):
             # Return a response in json format
             response = {'result': result.tolist(),
                         'additional': additional.tolist()}
-            with open('debugging-server.txt', 'w', encoding='utf-8') as f:
-                print(json_data, file=f)
             res = result[0]
             res = min(float(json_data['bound']) + 1, result[0])
             return Response(response=str(res) + '\n' + str(res),
