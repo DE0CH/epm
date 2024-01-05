@@ -191,8 +191,7 @@ def convert_params_to_vec(params, cs, encode=True, impute_with='def'):
                      .format(config))
     return config
 
-
-def retrieve_host_port(nic_name=None, ip=None, port=0):
+def retreive_socket(nic_name=None, ip=None, port=0):
     """
     Creates from a network interface name (e.g. 'localhost') a valid ip
     address and a port. If no ip and no nic name is specified, the default
@@ -206,7 +205,7 @@ def retrieve_host_port(nic_name=None, ip=None, port=0):
 
     Returns
     -------
-        ip, port
+        sock: the socket that is bound to the ip and port
     """
     import socket
 
@@ -225,6 +224,25 @@ def retrieve_host_port(nic_name=None, ip=None, port=0):
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind((host, port))
+    return sock
+
+def retrieve_host_port(nic_name=None, ip=None, port=0):
+    """
+    Creates from a network interface name (e.g. 'localhost') a valid ip
+    address and a port. If no ip and no nic name is specified, the default
+    network address will be picked.
+
+    Parameters
+    ----------
+    nic_name : str, None
+    ip : int, None
+    port : int
+
+    Returns
+    -------
+        ip, port
+    """
+    sock = retreive_socket(nic_name, ip, port)
     ip, port = sock.getsockname()
     sock.close()
     logger.debug('Retrieved host {} on port {}'.format(ip, port))

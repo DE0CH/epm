@@ -5,7 +5,7 @@ import pathlib
 from time import time
 from subprocess import Popen
 from flask import Flask, jsonify, request, Response, json
-from .flask_server_helper import retrieve_host_port, \
+from .flask_server_helper import retrieve_host_port, retreive_socket, \
     store_credentials, handle_request, parse_args, parse_args_state_stop
 from .flask_worker_helper import retrieve_credentials, check_server_status, \
     send_shutdown_signal
@@ -184,68 +184,30 @@ def create_app(**kwargs):
                             status=200,
                             mimetype='application/json')
 
-    @app.route('/shutdown', methods=['GET'])
-    def shutdown():
-        """
-        Shut down the webserver.
-
-        Returns
-        -------
-        str
-        """
-
-        logger.debug('Start Shutdown procedure')
-
-        # clean up server files and release lock
-        cwd = pathlib.Path(app.kwargs.get('dir', '.'))
-        nameserver_file = cwd / 'nameserver_creds.pkl'
-        lock_file = cwd / 'lock.file'
-        pid_file = cwd / 'gunicorn-{}.pid'.format(app.kwargs.get('pid'))
-
-        # Read in the process id of the gUnicorn server
-        pid = pid_file.read_text().rstrip()
-
-        # Delete the server files.
-        for file in [pid_file, nameserver_file, lock_file]:
-            try:
-                file.unlink()
-                logger.debug('{} deleted'.format(file.name))
-            except FileNotFoundError:
-                logger.info('Deletion of {} file not successful.'
-                            .format(file.name))
-
-        # Shut down server
-        kill_cmd = "sleep 2; kill -15 {}".format(pid)
-        logger.info('SERVER SHUTTING DOWN with command {}'.format(kill_cmd))
-        Popen(kill_cmd, shell=True)
-        logger.info('Server shutdown successful.')
-
-        return jsonify('SERVER SHUTTING DOWN with command {}'.format(kill_cmd))
-
     return app
 
 
 if __name__ == "__main__":
+    from waitress import serve
     if len(sys.argv) == 4 or len(sys.argv) == 2:
         args, unknown = parse_args_state_stop(sys.argv[1:])
     else:
         args, unknown = parse_args(sys.argv[1:])
 
     if args.action == 'start':
-        ip, port = retrieve_host_port(args.nic_name, args.ip, args.port)
-        store_credentials(ip, port, args.pid, args.dir)
+        sock = retreive_socket(args.nic_name, args.ip, args.port)
+        ip, port = sock.getsockname()
         app = create_app(**vars(args))
-        app.run(debug=args.debug, host=ip, port=port, threaded=False)
+        store_credentials(ip, port, args.pid, args.dir)
+        serve(app, sockets=[sock], threads=1)
 
-    elif args.action == 'status' or args.action == 'stop':
+    elif args.action == 'status':
         host, port, pid = retrieve_credentials(args.dir)
         running = check_server_status(host=host,
                                       port=port,
                                       update_last_request=False)
 
         print('Server is {} running'.format(('not' if not running else '')))
-        if args.action == 'stop':
-            send_shutdown_signal(host=host, port=port)
 
     else:
         print('Action state not known')
