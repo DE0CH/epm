@@ -9,3 +9,4 @@ gunicorn
 json-tricks
 ConfigSpace
 requests
+waitress
